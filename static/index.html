@@ -459,11 +459,6 @@
         const API_BASE = '/api';
 
         // Initialize
-        document.getElementById('downloadForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await downloadVideo();
-        });
-
         loadExtractors();
         loadJobs();
         setInterval(loadJobs, 2000); // Refresh jobs every 2 seconds
