@@ -38,7 +38,7 @@ document.getElementById("downloadForm").addEventListener("submit", async (ev) =>
   const url = document.getElementById("url").value;
   const format = document.getElementById("format").value;
   const use_aria2 = document.getElementById("use_aria2").checked;
-  const cookiesFileInput = document.getElementById("cookies_file");
+  const cookiesFileInput = document.getElementById("cookies");
   const form = new FormData();
   form.append("url", url);
   form.append("format", format);
