@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Termux Video Downloader</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Termux Video Downloader</h1>
+    <form id="downloadForm">
+      <label>URL</label>
+      <input id="url" name="url" type="text" placeholder="https://..." required>
+      <label>Format</label>
+      <input id="format" name="format" type="text" value="best">
+      <label>Use aria2</label>
+      <input id="use_aria2" name="use_aria2" type="checkbox">
+      <label>Cookies file (optional)</label>
+      <input id="cookies_file" name="cookies_file" type="file" accept=".txt">
+      <button type="submit">Download</button>
+    </form>
+
+    <h2>Jobs</h2>
+    <div id="jobs"></div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
