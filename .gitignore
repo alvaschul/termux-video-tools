@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.log
+.env
+venv/
+node_modules/
+aria2.log
+jobs.json
