@@ -625,7 +625,7 @@
                 const jobs = await response.json();
 
                 let jobsHtml = '';
-                const jobsArray = Object.values(jobs).reverse();
+                const jobsArray = Object.values(jobs).sort((a, b) => (b.created_at || '') - (a.created_at || ''));
 
                 if (jobsArray.length === 0) {
                     jobsHtml = '<div class="empty-state">No downloads yet. Add one above! ⬆️</div>';

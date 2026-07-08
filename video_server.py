@@ -148,8 +148,10 @@ def run_yt_dlp_download(url, outdir, fmt, cookies_path=None):
                 break
         return True, f"Downloaded: {title}"
     except subprocess.CalledProcessError as e:
-        err = (e.stderr or "").strip() or str(e)
-        return False, f"yt-dlp failed: {err[:200]}"
+        # Prefer the actual ERROR line over yt-dlp warnings
+        err_lines = (e.stderr or "").strip().splitlines()
+        real_err = next((l for l in err_lines if l.startswith("ERROR:")), err_lines[-1] if err_lines else str(e))
+        return False, f"yt-dlp failed: {real_err[:200]}"
     except subprocess.TimeoutExpired:
         return False, "yt-dlp download timed out after 10 minutes"
     except Exception as e:
@@ -180,8 +182,8 @@ def aria2_add_and_wait(uris, outdir, filename=None, max_wait=3600):
             download.update()
             if download.is_complete:
                 return True, f"aria2 download complete: gid={download.gid}"
-            if download.is_error:
-                return False, f"aria2 download error: {download.error_message}"
+            if download.status == "error":
+                return False, f"aria2 download error: {download.error_message or download.status}"
             time.sleep(1)
             waited += 1
             if waited >= max_wait:
@@ -264,8 +266,10 @@ def run_yt_dlp_download_using_external_aria2(url, outdir, fmt, cookies_path=None
                 break
         return True, f"Downloaded via aria2c: {title}"
     except subprocess.CalledProcessError as e:
-        err = (e.stderr or "").strip() or str(e)
-        return False, f"aria2c download failed: {err[:200]}"
+        # Prefer the actual ERROR line over yt-dlp warnings
+        err_lines = (e.stderr or "").strip().splitlines()
+        real_err = next((l for l in err_lines if l.startswith("ERROR:")), err_lines[-1] if err_lines else str(e))
+        return False, f"aria2c download failed: {real_err[:200]}"
     except subprocess.TimeoutExpired:
         return False, "aria2c download timed out after 10 minutes"
     except Exception as e:
