@@ -19,16 +19,62 @@ Lightweight Termux toolset to download videos from many websites using yt-dlp, w
 - Termux on Android
 - Termux storage permission: run `termux-setup-storage` once
 
-## Install
-1. Place all files in `~/termux-video-tools`.
+## Quick Install
+
+The easiest way to install is using git clone:
+
+```bash
+# Clone the repository
+git clone https://github.com/alvaschul/termux-video-tools.git ~/termux-video-tools
+cd ~/termux-video-tools
+
+# Run the installer (handles all setup)
+bash installer.sh
+```
+
+The installer will:
+- ✅ Update system packages
+- ✅ Install dependencies (python, ffmpeg, aria2, git, build tools)
+- ✅ Install Python requirements (Flask, yt-dlp, aria2p)
+- ✅ Make scripts executable
+- ✅ Add tools directory to PATH
+
+## Alternative Manual Install
+
+If you prefer manual setup:
+
+1. Download all files to `~/termux-video-tools`
 2. Make scripts executable:
    ```bash
    chmod +x ~/termux-video-tools/{installer.sh,vidget,video_server.py,start_aria2.sh}
    ```
-3. Run the installer script to install packages:
+3. Run the installer:
    ```bash
    bash ~/termux-video-tools/installer.sh
    ```
+
+## One-Line Install
+
+Copy and paste this single command to install everything:
+
+```bash
+git clone https://github.com/alvaschul/termux-video-tools.git ~/termux-video-tools && cd ~/termux-video-tools && bash installer.sh
+```
+
+After installation, verify everything works:
+
+```bash
+# Allow storage access (one-time)
+termux-setup-storage
+
+# Check installed extractors
+python3 video_server.py --list-extractors
+
+# Start the web UI
+vidget serve --port 8080
+```
+
+Then open http://localhost:8080 in your browser!
 
 ## Usage
 
