@@ -430,7 +430,7 @@
                             </small>
                         </div>
 
-                        <button type="submit">Download</button>
+                        <button type="button" id="downloadBtn" onclick="downloadVideo()">Download</button>
                     </form>
                 </div>
 
@@ -463,6 +463,45 @@
         loadExtractors();
         loadJobs();
         setInterval(loadJobs, 2000); // Refresh jobs every 2 seconds
+
+        async function downloadVideo() {
+            const url = document.getElementById('url').value;
+            const format = document.getElementById('format').value;
+            const useAria2 = document.getElementById('useAria2').checked;
+            const cookiesFile = document.getElementById('cookies').files[0];
+
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('url', url);
+            formData.append('format', format);
+            formData.append('use_aria2', useAria2 ? 'true' : 'false');
+            if (cookiesFile) {
+                formData.append('cookies_file', cookiesFile);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/download`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Download request failed');
+                }
+
+                const data = await response.json();
+                alert(`Download queued! Job ID: ${data.job_id}`);
+                document.getElementById('downloadForm').reset();
+                document.getElementById('detectorResult').innerHTML = '';
+                loadJobs();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
 
         async function detectExtractor() {
             const url = document.getElementById('url').value;
