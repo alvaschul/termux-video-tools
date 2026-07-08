@@ -1,0 +1,35 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# Simple wrapper for the Python tool.
+TOOLS_DIR="${HOME}/termux-video-tools"
+PY="${PREFIX:-/data/data/com.termux/files/usr}/bin/python3"
+SCRIPT="$TOOLS_DIR/video_server.py"
+
+if [ ! -f "$SCRIPT" ]; then
+  echo "video_server.py not found in $TOOLS_DIR. Please place files there or adjust vidget."
+  exit 1
+fi
+
+case "$1" in
+  serve)
+    # usage: vidget serve [--port 8080]
+    shift || true
+    exec "$PY" "$SCRIPT" --serve "$@"
+    ;;
+  download)
+    # usage: vidget download <url> [--format mp4]
+    shift || true
+    exec "$PY" "$SCRIPT" --download "$@"
+    ;;
+  status)
+    # vidget status <jobid>
+    shift || true
+    exec "$PY" "$SCRIPT" --status "$@"
+    ;;
+  *)
+    echo "Usage: vidget {serve|download|status} ..."
+    echo "  vidget serve --port 8080        # start web UI"
+    echo "  vidget download <URL> [--format best]  # download URL"
+    echo "  vidget status <JOB_ID>          # query job"
+    exit 1
+    ;;
+esac
