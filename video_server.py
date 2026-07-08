@@ -2,6 +2,7 @@
 """
 Termux Video Tools - server and CLI
 Features:
+- Extensible extractor plugin system for site-specific handling
 - yt-dlp downloads (via Python API or subprocess)
 - aria2 integration via aria2p RPC (extract direct URLs via yt-dlp then add to aria2)
 - cookies.txt support (upload or path)
@@ -15,9 +16,17 @@ import threading
 import queue
 import argparse
 import time
+import logging
 from datetime import datetime
 from pathlib import Path
 from shutil import which
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Flask import (optional if running CLI-only)
 try:
@@ -36,6 +45,16 @@ try:
     import aria2p
 except Exception:
     aria2p = None
+
+# Extractor system
+try:
+    from extractors.registry import ExtractorRegistry
+    import extractors.sites  # Auto-registers extractors
+    EXTRACTORS_AVAILABLE = True
+    logger.info("Extractor system loaded successfully")
+except Exception as e:
+    EXTRACTORS_AVAILABLE = False
+    logger.warning(f"Extractor system not available: {e}")
 
 HOME = Path.home()
 TOOLS_DIR = HOME / "termux-video-tools"
@@ -63,8 +82,8 @@ def save_jobs():
         with JOBS_LOCK:
             with open(JOBS_FILE, "w") as f:
                 json.dump(JOBS, f, indent=2, default=str)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Failed to save jobs: {e}")
 
 def load_jobs():
     if JOBS_FILE.exists():
@@ -73,11 +92,24 @@ def load_jobs():
                 data = json.load(f)
             with JOBS_LOCK:
                 JOBS.update(data)
-        except Exception:
-            pass
+            logger.info(f"Loaded {len(JOBS)} jobs from persistent storage")
+        except Exception as e:
+            logger.error(f"Failed to load jobs: {e}")
 
 def enqueue_download(url, fmt="best", use_aria2=False, cookies_path=None, outdir=None):
     jobid = str(uuid.uuid4())
+    
+    # Detect extractor
+    extractor_key = "generic"
+    if EXTRACTORS_AVAILABLE:
+        try:
+            extractor = ExtractorRegistry.find_extractor(url)
+            if extractor:
+                extractor_key = extractor.info.name
+                logger.info(f"Selected extractor '{extractor_key}' for URL: {url[:60]}...")
+        except Exception as e:
+            logger.warning(f"Failed to detect extractor: {e}")
+    
     job = {
         "id": jobid,
         "url": url,
@@ -85,6 +117,7 @@ def enqueue_download(url, fmt="best", use_aria2=False, cookies_path=None, outdir
         "use_aria2": bool(use_aria2),
         "cookies": str(cookies_path) if cookies_path else None,
         "outdir": str(outdir or OUT_DIR),
+        "extractor": extractor_key,
         "status": "queued",
         "progress": 0.0,
         "message": "",
@@ -339,6 +372,75 @@ if FLASK_AVAILABLE:
             newjid = enqueue_download(job["url"], fmt=job.get("format"), use_aria2=job.get("use_aria2"), cookies_path=job.get("cookies"), outdir=job.get("outdir"))
             return jsonify({"new_job_id": newjid})
 
+    @app.route("/api/extractors", methods=["GET"])
+    def api_extractors():
+        """List all available extractors and supported sites."""
+        if not EXTRACTORS_AVAILABLE:
+            return jsonify({
+                "error": "Extractor system not available",
+                "extractors": {}
+            })
+        
+        try:
+            extractors_info = ExtractorRegistry.list_extractors()
+            supported_domains = ExtractorRegistry.get_supported_domains()
+            
+            result = {
+                "total_extractors": len(extractors_info),
+                "total_domains": len(supported_domains),
+                "extractors": {}
+            }
+            
+            for key, info in extractors_info.items():
+                result["extractors"][key] = {
+                    "name": info.name,
+                    "domains": info.domains,
+                    "requires_auth": info.requires_auth,
+                    "supports_playlists": info.supports_playlists,
+                    "supports_live": info.supports_live,
+                    "description": info.description,
+                }
+            
+            result["supported_domains"] = sorted(supported_domains)
+            return jsonify(result)
+        except Exception as e:
+            logger.error(f"Error listing extractors: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/detect", methods=["POST"])
+    def api_detect():
+        """Detect which extractor will handle a given URL."""
+        url = request.json.get("url") if request.is_json else request.form.get("url")
+        
+        if not url:
+            return jsonify({"error": "missing url"}), 400
+        
+        if not EXTRACTORS_AVAILABLE:
+            return jsonify({
+                "error": "Extractor system not available",
+                "extractor": None
+            })
+        
+        try:
+            extractor = ExtractorRegistry.find_extractor(url)
+            if extractor:
+                return jsonify({
+                    "extractor": extractor.info.name,
+                    "requires_auth": extractor.info.requires_auth,
+                    "supports_playlists": extractor.info.supports_playlists,
+                    "supports_live": extractor.info.supports_live,
+                    "description": extractor.info.description,
+                    "default_format": extractor.get_default_format(),
+                })
+            else:
+                return jsonify({
+                    "error": "No suitable extractor found",
+                    "extractor": None
+                }), 404
+        except Exception as e:
+            logger.error(f"Error detecting extractor: {e}")
+            return jsonify({"error": str(e)}), 500
+
 # CLI entrypoint
 def cli_main():
     parser = argparse.ArgumentParser(prog="video_server.py")
@@ -349,6 +451,8 @@ def cli_main():
     parser.add_argument("--use-aria2", action="store_true", help="Use aria2 RPC (requires aria2c running with RPC)")
     parser.add_argument("--cookies", help="Path to cookies.txt file")
     parser.add_argument("--status", help="Query status for job id")
+    parser.add_argument("--list-extractors", action="store_true", help="List all available extractors")
+    parser.add_argument("--detect", help="Detect extractor for a URL")
     args = parser.parse_args()
 
     if args.serve:
@@ -356,6 +460,7 @@ def cli_main():
             print("Flask is not installed. Please pip install Flask and try again.")
             sys.exit(1)
         print(f"Starting web UI on http://0.0.0.0:{args.port}")
+        print(f"Extractor system: {'ENABLED' if EXTRACTORS_AVAILABLE else 'DISABLED'}")
         app.run(host="0.0.0.0", port=args.port, threaded=True)
     elif args.download:
         url = " ".join(args.download)
@@ -379,176 +484,43 @@ def cli_main():
             print("Job not found.")
             sys.exit(1)
         print(json.dumps(job, indent=2))
-    else:
-        parser.print_help()
-
-if __name__ == "__main__":
-    cli_main()<hr>
-<h2>Queue / Jobs</h2>
-<ul>
-{% for jobid, j in jobs.items() %}
-  <li><b>{{jobid}}</b> - {{j.get('url')}} - {{j.get('status')}} - {{j.get('message','')}}</li>
-{% endfor %}
-</ul>
-"""
-
-def save_jobs():
-    try:
-        with JOBS_LOCK:
-            (TOOLS_DIR).mkdir(parents=True, exist_ok=True)
-            with open(JOBS_FILE, "w") as f:
-                json.dump(JOBS, f, default=str, indent=2)
-    except Exception:
-        pass
-
-def load_jobs():
-    if JOBS_FILE.exists():
-        try:
-            with open(JOBS_FILE, "r") as f:
-                data = json.load(f)
-            with JOBS_LOCK:
-                JOBS.update(data)
-        except Exception:
-            pass
-
-def run_yt_dlp(url, outdir, fmt):
-    """Try to use yt_dlp Python API; fallback to calling yt-dlp subprocess."""
-    outtpl = str(outdir / "%(title)s.%(ext)s")
-    try:
-        import yt_dlp
-        opts = {
-            "outtmpl": outtpl,
-            "format": fmt or "best",
-            "noplaylist": False,
-        }
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-        return True, str(info.get("title", ""))
-    except Exception as e:
-        # fallback to subprocess
-        import subprocess
-        cmd = ["yt-dlp", "-o", outtpl, "-f", fmt or "best", url]
-        try:
-            subprocess.run(cmd, check=True)
-            return True, "downloaded (subprocess)"
-        except Exception as e2:
-            return False, f"yt-dlp failed: {e} | {e2}"
-
-def worker():
-    while True:
-        jobid = TASK_QUEUE.get()
-        if jobid is None:
-            break
-        with JOBS_LOCK:
-            job = JOBS.get(jobid, {})
-            job["status"] = "running"
-            job["started_at"] = str(datetime.utcnow())
-            save_jobs()
-        url = job.get("url")
-        fmt = job.get("format", "best")
-        outdir = Path(job.get("outdir", str(OUT_DIR)))
-        outdir.mkdir(parents=True, exist_ok=True)
-        success, msg = run_yt_dlp(url, outdir, fmt)
-        with JOBS_LOCK:
-            job["status"] = "done" if success else "error"
-            job["finished_at"] = str(datetime.utcnow())
-            job["message"] = msg
-            save_jobs()
-        TASK_QUEUE.task_done()
-
-def enqueue_download(url, fmt="best", outdir=None):
-    jobid = str(uuid.uuid4())
-    job = {
-        "id": jobid,
-        "url": url,
-        "format": fmt,
-        "outdir": str(outdir or OUT_DIR),
-        "status": "queued",
-        "created_at": str(datetime.utcnow())
-    }
-    with JOBS_LOCK:
-        JOBS[jobid] = job
-        save_jobs()
-    TASK_QUEUE.put(jobid)
-    return jobid
-
-# Start background worker thread
-_worker_thread = threading.Thread(target=worker, daemon=True)
-_worker_thread.start()
-load_jobs()
-
-# Flask app section
-if Flask:
-    app = Flask(__name__)
-
-    @app.route("/", methods=["GET"])
-    def index():
-        with JOBS_LOCK:
-            jobs_view = dict(JOBS)
-        return render_template_string(HTML, jobs=jobs_view)
-
-    @app.route("/download", methods=["POST"])
-    def download_route():
-        url = request.form.get("url") or request.json.get("url")
-        fmt = request.form.get("format") or request.json.get("format") or "best"
-        if not url:
-            return "Missing url", 400
-        jobid = enqueue_download(url, fmt)
-        return redirect(url_for("status_route", jobid=jobid))
-
-    @app.route("/status/<jobid>", methods=["GET"])
-    def status_route(jobid):
-        with JOBS_LOCK:
-            job = JOBS.get(jobid)
-        if not job:
-            return jsonify({"error": "job not found"}), 404
-        return jsonify(job)
-
-    @app.route("/jobs", methods=["GET"])
-    def jobs_route():
-        with JOBS_LOCK:
-            return jsonify(JOBS)
-
-def cli_main():
-    parser = argparse.ArgumentParser(prog="video_server.py")
-    parser.add_argument("--serve", action="store_true", help="Run web UI")
-    parser.add_argument("--port", type=int, default=8080, help="Port for web UI")
-    parser.add_argument("--download", nargs="+", help="Download URL (CLI mode)")
-    parser.add_argument("--format", default="best", help="Format for yt-dlp")
-    parser.add_argument("--status", help="Query status for job id")
-    args = parser.parse_args()
-
-    if args.serve:
-        if not Flask:
-            print("Flask not installed. Please run: pip install Flask")
+    elif args.list_extractors:
+        if not EXTRACTORS_AVAILABLE:
+            print("Extractor system not available")
             sys.exit(1)
-        print(f"Starting web UI on http://0.0.0.0:{args.port}")
-        app.run(host="0.0.0.0", port=args.port, threaded=True)
-    elif args.download:
-        url = " ".join(args.download)
-        jobid = enqueue_download(url, args.format)
-        print("Enqueued job:", jobid)
-        # Optionally wait for completion:
-        print("Waiting for job to finish...")
-        while True:
-            with JOBS_LOCK:
-                status = JOBS.get(jobid, {}).get("status")
-            if status in ("done", "error"):
-                print("Job finished:", status)
-                with JOBS_LOCK:
-                    print(json.dumps(JOBS[jobid], indent=2))
-                break
+        
+        try:
+            extractors_info = ExtractorRegistry.list_extractors()
+            print("\n=== Available Extractors ===\n")
+            for key, info in extractors_info.items():
+                print(f"Name: {info.name}")
+                print(f"  Domains: {', '.join(info.domains) if info.domains else 'Any (fallback)'}")
+                print(f"  Auth Required: {info.requires_auth}")
+                print(f"  Playlists: {info.supports_playlists}")
+                print(f"  Live Streams: {info.supports_live}")
+                print(f"  Description: {info.description}")
+                print()
+        except Exception as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+    elif args.detect:
+        if not EXTRACTORS_AVAILABLE:
+            print("Extractor system not available")
+            sys.exit(1)
+        
+        try:
+            extractor = ExtractorRegistry.find_extractor(args.detect)
+            if extractor:
+                print(f"Detected Extractor: {extractor.info.name}")
+                print(f"  Description: {extractor.info.description}")
+                print(f"  Requires Auth: {extractor.info.requires_auth}")
+                print(f"  Default Format: {extractor.get_default_format()}")
             else:
-                import time
-                time.sleep(1)
-    elif args.status:
-        jid = args.status
-        with JOBS_LOCK:
-            job = JOBS.get(jid)
-        if not job:
-            print("Job not found.")
+                print("No suitable extractor found for this URL")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error: {e}")
             sys.exit(1)
-        print(json.dumps(job, indent=2))
     else:
         parser.print_help()
 
