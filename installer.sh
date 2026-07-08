@@ -51,7 +51,9 @@ echo "Next steps:"
 echo "  1) Allow storage: termux-setup-storage"
 echo "  2) Start aria2 RPC: $TOOLS_DIR/start_aria2.sh"
 echo "  3) Start web UI: vidget serve --port 8080"
-echo "  4) Download from CLI: vidget download '<URL>' [--format best] [--use-aria2] [--cookies /path/to/cookies.txt]"if ! grep -q 'termux-video-tools' "$SHELL_RC" 2>/dev/null; then
+echo "  4) Download from CLI: vidget download '<URL>' [--format best] [--use-aria2] [--cookies /path/to/cookies.txt]"
+
+if ! grep -q 'termux-video-tools' "$SHELL_RC" 2>/dev/null; then
   echo "export PATH=\"\$PATH:$TOOLS_DIR\"" >> "$SHELL_RC"
   echo "Added PATH entry to $SHELL_RC. Start a new session or run: source $SHELL_RC"
 fi
