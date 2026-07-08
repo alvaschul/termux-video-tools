@@ -157,98 +157,6 @@ def run_yt_dlp_download(url, outdir, fmt, cookies_path=None):
     except Exception as e:
         return False, f"yt-dlp failed: {e}"
 
-def aria2_add_and_wait(uris, outdir, filename=None, max_wait=3600):
-    """
-    Add URIs to aria2 via aria2p and wait until finished (simple polling).
-    Returns (success, message)
-    """
-    if aria2p is None:
-        return False, "aria2p not installed"
-    try:
-        client = aria2p.Client(host=ARIA2_HOST, port=ARIA2_PORT)
-        api = aria2p.API(client)
-    except Exception as e:
-        return False, f"Failed to connect to aria2 RPC: {e}"
-
-    try:
-        options = {"dir": str(outdir)}
-        if filename:
-            options["out"] = filename
-        # add uris
-        download = api.add_uris(uris, options=options)
-        # Poll download status
-        waited = 0
-        while True:
-            download.update()
-            if download.is_complete:
-                return True, f"aria2 download complete: gid={download.gid}"
-            if download.status == "error":
-                return False, f"aria2 download error: {download.error_message or download.status}"
-            time.sleep(1)
-            waited += 1
-            if waited >= max_wait:
-                return False, "aria2 download timeout"
-    except Exception as e:
-        return False, f"aria2 add failed: {e}"
-
-def run_via_aria2_with_extraction(url, outdir, fmt, cookies_path=None):
-    """
-    Use yt-dlp to extract direct file URIs and hand them to aria2.
-    If extraction can't produce direct URIs suitable for aria2 (or multiple parts need merging),
-    fall back to calling yt-dlp with --external-downloader aria2c.
-    """
-    # Ensure yt-dlp extraction works
-    try:
-        if ytdlp_pkg is None:
-            raise RuntimeError("yt-dlp Python package not available")
-        ydl_opts = {"format": fmt or "best", "noplaylist": False, "skip_download": True}
-        if cookies_path:
-            ydl_opts["cookiefile"] = str(cookies_path)
-        with ytdlp_pkg.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-    except Exception as e:
-        # Extraction failed -> fallback to external-downloader call
-        return run_yt_dlp_download_using_external_aria2(url, outdir, fmt, cookies_path)
-
-    # Normalize to a list of entries
-    entries = []
-    if isinstance(info, dict) and info.get("_type") == "playlist":
-        entries = info.get("entries", [])
-    else:
-        entries = [info]
-
-    # For each entry, try to collect a single direct URL (or list) for aria2
-    for entry in entries:
-        uris = []
-        # Prefer 'url' top-level (direct URL)
-        if entry.get("url") and entry.get("acodec") != "none" or entry.get("ext"):
-            # In some cases 'url' is a direct resource
-            if entry.get("protocol", "") not in ("m3u8", "dash"):
-                uris.append(entry.get("url"))
-        # fallback to formats array with direct urls
-        if not uris and entry.get("formats"):
-            # choose best matching format
-            formats = entry.get("formats")
-            # pick the requested format (fmt) if present
-            if formats:
-                # pick the first format that has a direct 'url'
-                for f in reversed(formats):
-                    if f.get("url") and f.get("protocol") not in ("m3u8", "dash"):
-                        uris.append(f.get("url"))
-                        break
-        if not uris:
-            # Cannot hand a single direct URL to aria2 for this entry; fallback
-            return run_yt_dlp_download_using_external_aria2(url, outdir, fmt, cookies_path)
-
-        # Try adding the found URIs to aria2
-        filename = None
-        if entry.get("title") and entry.get("ext"):
-            filename = f"{entry.get('title')}.{entry.get('ext')}"
-        success, msg = aria2_add_and_wait(uris, outdir, filename)
-        if not success:
-            return False, msg
-    return True, "aria2 downloads finished"
-
 def run_yt_dlp_download_using_external_aria2(url, outdir, fmt, cookies_path=None):
     outtpl = str(Path(outdir) / "%(title)s.%(ext)s")
     import subprocess
@@ -293,7 +201,7 @@ def process_job(jobid):
 
     try:
         if use_aria2:
-            success, message = run_via_aria2_with_extraction(url, outdir, fmt, cookies)
+            success, message = run_yt_dlp_download_using_external_aria2(url, outdir, fmt, cookies)
         else:
             success, message = run_yt_dlp_download(url, outdir, fmt, cookies)
     except Exception as e:
