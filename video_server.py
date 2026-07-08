@@ -70,7 +70,7 @@ STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 # In-memory job store + persistence lock
 JOBS = {}
-JOBS_LOCK = threading.Lock()
+JOBS_LOCK = threading.RLock()
 TASK_QUEUE = queue.Queue()
 
 # aria2 RPC defaults
@@ -131,33 +131,29 @@ def enqueue_download(url, fmt="best", use_aria2=False, cookies_path=None, outdir
 
 def run_yt_dlp_download(url, outdir, fmt, cookies_path=None):
     outtpl = str(Path(outdir) / "%(title)s.%(ext)s")
-    # Try Python API first
+    # Try subprocess call with timeout (more reliable on mobile)
+    import subprocess
+    cmd = ["yt-dlp", "-o", outtpl, "-f", fmt or "best", "--socket-timeout", "30"]
+    if cookies_path:
+        cmd += ["--cookies", str(cookies_path)]
+    cmd += [url]
     try:
-        if ytdlp_pkg is None:
-            raise RuntimeError("yt-dlp Python package not available")
-        opts = {
-            "outtmpl": outtpl,
-            "format": fmt or "best",
-            "noplaylist": False,
-            "merge_output_format": None,
-        }
-        if cookies_path:
-            opts["cookiefile"] = str(cookies_path)
-        with ytdlp_pkg.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-        return True, f"Downloaded via yt-dlp: {info.get('title', '')}"
+        proc = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=600)
+        # Extract title from output
+        title = "unknown"
+        for line in (proc.stdout or "").splitlines():
+            if "Destination:" in line:
+                path = line.split("Destination:")[-1].strip()
+                title = Path(path).stem
+                break
+        return True, f"Downloaded: {title}"
+    except subprocess.CalledProcessError as e:
+        err = (e.stderr or "").strip() or str(e)
+        return False, f"yt-dlp failed: {err[:200]}"
+    except subprocess.TimeoutExpired:
+        return False, "yt-dlp download timed out after 10 minutes"
     except Exception as e:
-        # Fallback to subprocess call if Python API failed
-        import subprocess
-        cmd = ["yt-dlp", "-o", outtpl, "-f", fmt or "best"]
-        if cookies_path:
-            cmd += ["--cookies", str(cookies_path)]
-        cmd += [url]
-        try:
-            subprocess.run(cmd, check=True)
-            return True, "Downloaded via yt-dlp (subprocess)"
-        except Exception as e2:
-            return False, f"yt-dlp failed: {e} | {e2}"
+        return False, f"yt-dlp failed: {e}"
 
 def aria2_add_and_wait(uris, outdir, filename=None, max_wait=3600):
     """
@@ -254,15 +250,26 @@ def run_via_aria2_with_extraction(url, outdir, fmt, cookies_path=None):
 def run_yt_dlp_download_using_external_aria2(url, outdir, fmt, cookies_path=None):
     outtpl = str(Path(outdir) / "%(title)s.%(ext)s")
     import subprocess
-    cmd = ["yt-dlp", "-o", outtpl, "-f", fmt or "best", "--external-downloader", "aria2c", "--external-downloader-args", "-x 4 -s 4 -k 1M"]
+    cmd = ["yt-dlp", "-o", outtpl, "-f", fmt or "best", "--socket-timeout", "30", "--external-downloader", "aria2c", "--external-downloader-args", "-x 4 -s 4 -k 1M"]
     if cookies_path:
         cmd += ["--cookies", str(cookies_path)]
     cmd += [url]
     try:
-        subprocess.run(cmd, check=True)
-        return True, "Downloaded via yt-dlp using external aria2c"
+        proc = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=600)
+        title = "unknown"
+        for line in (proc.stdout or "").splitlines():
+            if "Destination:" in line:
+                path = line.split("Destination:")[-1].strip()
+                title = Path(path).stem
+                break
+        return True, f"Downloaded via aria2c: {title}"
+    except subprocess.CalledProcessError as e:
+        err = (e.stderr or "").strip() or str(e)
+        return False, f"aria2c download failed: {err[:200]}"
+    except subprocess.TimeoutExpired:
+        return False, "aria2c download timed out after 10 minutes"
     except Exception as e:
-        return False, f"external aria2c download failed: {e}"
+        return False, f"aria2c download failed: {e}"
 
 def process_job(jobid):
     with JOBS_LOCK:
