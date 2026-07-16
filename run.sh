@@ -37,10 +37,10 @@ start_aria2() {
 
 start_server() {
   echo "[server] starting web UI..."
-  nohup "${TOOLS_DIR}/vidget" serve --port 8080 \
+  nohup "${TOOLS_DIR}/vidget" serve --port 9090 \
     >> "${TOOLS_DIR}/server.log" 2>&1 &
   echo $! >> "${PIDFILE}"
-  echo "[server] launched on http://0.0.0.0:8080 (log: ${TOOLS_DIR}/server.log)"
+  echo "[server] launched on http://0.0.0.0:9090 (log: ${TOOLS_DIR}/server.log)"
 }
 
 stop_all() {

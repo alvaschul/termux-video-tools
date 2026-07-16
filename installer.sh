@@ -50,7 +50,7 @@ echo "Installer finished."
 echo "Next steps:"
 echo "  1) Allow storage: termux-setup-storage"
 echo "  2) Start aria2 RPC: $TOOLS_DIR/start_aria2.sh"
-echo "  3) Start web UI: vidget serve --port 8080"
+echo "  3) Start web UI: vidget serve --port 9090"
 echo "  4) Download from CLI: vidget download '<URL>' [--format best] [--use-aria2] [--cookies /path/to/cookies.txt]"
 
 if ! grep -q 'termux-video-tools' "$SHELL_RC" 2>/dev/null; then
@@ -62,7 +62,7 @@ echo "Make sure you allow storage access (one-time):"
 echo "  termux-setup-storage"
 echo
 echo "To start the web UI:"
-echo "  vidget serve --port 8080"
+echo "  vidget serve --port 9090"
 echo
 echo "To download directly from CLI:"
 echo "  vidget download '<URL>'"
