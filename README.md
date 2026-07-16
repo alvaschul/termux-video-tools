@@ -61,7 +61,7 @@ Copy and paste this single command to install everything:
 git clone https://github.com/alvaschul/termux-video-tools.git ~/termux-video-tools && cd ~/termux-video-tools && bash installer.sh
 ```
 
-After installation, verify everything works:
+# After installation, verify everything works:
 
 ```bash
 # Allow storage access (one-time)
@@ -70,11 +70,11 @@ termux-setup-storage
 # Check installed extractors
 python3 video_server.py --list-extractors
 
-# Start the web UI
-vidget serve --port 8080
+# Start everything with one command
+bash ~/termux-video-tools/run.sh start
 ```
 
-Then open http://localhost:8080 in your browser!
+Then open http://localhost:9090 in your browser!
 
 ## Usage
 
@@ -84,11 +84,17 @@ Then open http://localhost:8080 in your browser!
 ```
 
 ### Web UI
-Start the web server:
+Start the web server with one command:
 ```bash
-vidget serve --port 8080
+bash ~/termux-video-tools/run.sh start
 ```
-Open http://localhost:8080 on the device or http://<device-ip>:8080 from a machine on the same network.
+Open http://localhost:9090 on the device or http://<device-ip>:9090 from a machine on the same network.
+
+**Quick stop/restart:**
+```bash
+bash ~/termux-video-tools/run.sh stop
+bash ~/termux-video-tools/run.sh restart
+```
 
 **Web UI Features:**
 - 🎬 Real-time site detection when pasting URLs
