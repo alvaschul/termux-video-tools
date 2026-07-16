@@ -70,12 +70,16 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 16px;
+            max-width: 100%;
+            min-width: 0;
         }
 
         @media (min-width: 861px) {
             .main-grid {
                 grid-template-columns: 1fr 320px;
                 gap: 18px;
+                max-width: 100%;
+                min-width: 0;
             }
             .mobile-tabs, .mobile-tab-bar { display: none !important; }
             .desktop-only { display: block; }
@@ -85,22 +89,23 @@
         @media (max-width: 860px) {
             .desktop-only { display: none !important; }
             .mobile-only { display: block; }
-            .tab-panel { display: none; }
-            .tab-panel.active { display: block; }
+            .tab-panel { display: none; min-width: 0; }
+            .tab-panel.active { display: block; min-width: 0; }
             .tab-scroll {
                 max-height: 65vh;
                 overflow-y: auto;
+                overflow-x: hidden;
                 padding-bottom: calc(84px + env(safe-area-inset-bottom));
             }
-            .card { padding: 14px; }
-            .job-item { padding: 8px; margin-bottom: 6px; border-radius: 10px; }
-            .job-header { flex-direction: column; align-items: flex-start; gap: 4px; }
-            .job-status { align-self: flex-start; }
-            .job-meta { font-size: 0.78rem; margin-top: 4px; }
-            .job-url { font-size: 0.8rem; margin: 2px 0; }
+            .card { padding: 14px; max-width: 100%; overflow: hidden; }
+            .job-item { padding: 8px; margin-bottom: 6px; border-radius: 10px; max-width: 100%; overflow: hidden; }
+            .job-header { flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
+            .job-status { align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .job-url { font-size: 0.8rem; margin: 2px 0; display: block; width: 100%; max-width: 100%; }
+            .job-meta { font-size: 0.78rem; margin-top: 4px; max-width: 100%; overflow: hidden; }
             .job-actions { margin-top: 6px; }
-            .pill-btn { min-height: 32px; font-size: 0.76rem; padding: 5px 9px; }
-            .progress-track { height: 6px; margin-top: 6px; }
+            .pill-btn { max-width: 100%; min-height: 32px; font-size: 0.76rem; padding: 5px 9px; }
+            .progress-track { height: 6px; margin-top: 6px; max-width: 100%; }
         }
 
         .card {
@@ -111,6 +116,8 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.45);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .card h2 {
@@ -288,6 +295,7 @@
             margin-bottom: 8px;
             gap: 8px;
             flex-wrap: wrap;
+            min-width: 0;
         }
 
         .job-status {
@@ -301,6 +309,10 @@
             border: 1px solid var(--border);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .status-queued { color: #7dc4ff; border-color:#1f3050; background:#101730; }
@@ -339,6 +351,7 @@
             font-size: 0.88rem;
             margin: 4px 0;
             max-width: 100%;
+            display: block;
         }
 
         .job-meta {
