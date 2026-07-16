@@ -20,7 +20,7 @@
             --warn: #fbbf24;
             --err: #f87171;
             --glow: rgba(122,163,255,0.22);
-            --radius: 18px;
+            --radius: 16px;
         }
 
         html, body { height: 100%; }
@@ -48,7 +48,7 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 22px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.45);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -69,7 +69,7 @@
         .main-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 14px;
+            gap: 16px;
         }
 
         @media (min-width: 861px) {
@@ -77,6 +77,17 @@
                 grid-template-columns: 1fr 320px;
                 gap: 18px;
             }
+            .mobile-tabs, .mobile-tab-bar { display: none !important; }
+            .desktop-only { display: block; }
+            .mobile-only { display: none !important; }
+        }
+
+        @media (max-width: 860px) {
+            .desktop-only { display: none !important; }
+            .mobile-only { display: block; }
+            .tab-panel { display: none; }
+            .tab-panel.active { display: block; }
+            .tab-scroll { max-height: 70vh; overflow-y: auto; }
         }
 
         .card {
@@ -428,10 +439,42 @@
             border-width: 0;
         }
 
-        @media (max-width: 860px) {
-            header h1 { font-size: 1.35rem; }
-            .card { padding: 16px; }
-            .btn { min-height: 52px; }
+        .mobile-tab-bar {
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(7,10,20,0.85);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 6px;
+            padding: 10px 10px max(14px, env(safe-area-inset-bottom));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 50;
+        }
+
+        .tab-btn {
+            flex: 1;
+            min-height: 48px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+            font-weight: 700;
+            font-size: 0.92rem;
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: white;
+            border-color: transparent;
+        }
+
+        @media (min-width: 861px) {
+            .mobile-tabs { display: none !important; }
+            .mobile-tab-bar { display: none !important; }
         }
     </style>
 </head>
@@ -444,71 +487,91 @@
 
         <div class="main-grid">
             <div>
-                <div class="card">
-                    <h2>📥 Download</h2>
-                    <form id="downloadForm" onsubmit="return false;">
-                        <div class="form-group">
-                            <label for="url">Video URL</label>
-                            <div class="input-row">
-                                <input type="text" id="url" name="url" placeholder="https://youtube.com/watch?v=..." required autocomplete="off">
-                                <button type="button" class="icon-btn" id="pasteBtn" aria-label="Paste from clipboard" title="Paste">📋</button>
-                            </div>
-                            <div class="detector">
-                                <button type="button" class="icon-btn" id="detectBtn" aria-label="Detect site" title="Detect site" style="width:auto;padding:10px 14px;font-size:0.9rem;">
-                                    🔍 Detect Site
-                                </button>
-                                <div id="detectorResult" class="sr-only" aria-live="polite"></div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="format">Format</label>
-                            <select id="format" name="format">
-                                <option value="best">Best Quality</option>
-                                <option value="bestvideo+bestaudio/best">Best Video + Audio</option>
-                                <option value="bestaudio">Audio Only</option>
-                                <option value="worst">Lowest Quality</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="cookies">Cookies File <span style="font-weight:500;text-transform:none;letter-spacing:0;">(optional)</span></label>
-                            <input type="file" id="cookies" name="cookies" accept=".txt">
-                            <div style="color: var(--text-muted); font-size: 0.82rem; margin-top: 6px;">
-                                Use for Instagram, private videos, or login-gated sites.
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <div class="checkbox-row">
-                                <input type="checkbox" id="useAria2" name="useAria2">
-                                <label for="useAria2" style="margin:0;color:var(--text);text-transform:none;letter-spacing:0;font-weight:700;">Use aria2 acceleration</label>
-                            </div>
-                            <div style="color: var(--text-muted); font-size: 0.82rem; margin-top: 6px;">
-                                Faster segmented downloads when aria2c is running.
-                            </div>
-                        </div>
-
-                        <div class="actions">
-                            <button type="button" id="downloadBtn" class="btn">Download</button>
-                        </div>
-                    </form>
+                <div class="mobile-tabs">
+                    <div class="mobile-tab-bar">
+                        <button class="tab-btn active" data-tab="download">Download</button>
+                        <button class="tab-btn" data-tab="queue">Queue</button>
+                        <button class="tab-btn" data-tab="sites">Sites</button>
+                    </div>
                 </div>
 
-                <div class="card" style="margin-top: 18px;">
-                    <div class="jobs-header">
-                        <h2 style="margin:0;border:none;padding:0;">📋 Queue</h2>
-                        <button type="button" class="pill-btn" id="refreshBtn">Refresh</button>
+                <div id="tab-download" class="tab-panel active">
+                    <div class="card">
+                        <h2>📥 Download</h2>
+                        <form id="downloadForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="url">Video URL</label>
+                                <div class="input-row">
+                                    <input type="text" id="url" name="url" placeholder="https://youtube.com/watch?v=..." required autocomplete="off">
+                                    <button type="button" class="icon-btn" id="pasteBtn" aria-label="Paste from clipboard" title="Paste">📋</button>
+                                </div>
+                                <div class="detector">
+                                    <button type="button" class="icon-btn" id="detectBtn" aria-label="Detect site" title="Detect site" style="width:auto;padding:10px 14px;font-size:0.9rem;">
+                                        🔍 Detect Site
+                                    </button>
+                                    <div id="detectorResult" class="sr-only" aria-live="polite"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="format">Format</label>
+                                <select id="format" name="format">
+                                    <option value="best">Best Quality</option>
+                                    <option value="bestvideo+bestaudio/best">Best Video + Audio</option>
+                                    <option value="bestaudio">Audio Only</option>
+                                    <option value="worst">Lowest Quality</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cookies">Cookies File <span style="font-weight:500;text-transform:none;letter-spacing:0;">(optional)</span></label>
+                                <input type="file" id="cookies" name="cookies" accept=".txt">
+                                <div style="color: var(--text-muted); font-size: 0.82rem; margin-top: 6px;">
+                                    Use for Instagram, private videos, or login-gated sites.
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="useAria2" name="useAria2">
+                                    <label for="useAria2" style="margin:0;color:var(--text);text-transform:none;letter-spacing:0;font-weight:700;">Use aria2 acceleration</label>
+                                </div>
+                                <div style="color: var(--text-muted); font-size: 0.82rem; margin-top: 6px;">
+                                    Faster segmented downloads when aria2c is running.
+                                </div>
+                            </div>
+
+                            <div class="actions">
+                                <button type="button" id="downloadBtn" class="btn">Download</button>
+                            </div>
+                        </form>
                     </div>
-                    <div id="jobsList"></div>
+                </div>
+
+                <div id="tab-queue" class="tab-panel">
+                    <div class="card tab-scroll">
+                        <div class="jobs-header">
+                            <h2 style="margin:0;border:none;padding:0;">📋 Queue</h2>
+                            <button type="button" class="pill-btn" id="refreshBtn">Refresh</button>
+                        </div>
+                        <div id="jobsList"></div>
+                    </div>
+                </div>
+
+                <div id="tab-sites" class="tab-panel">
+                    <div class="card tab-scroll">
+                        <h2 style="font-size:1.05rem;">🌐 Supported Sites</h2>
+                        <div id="extractorsStats" class="stats"></div>
+                        <div class="extractors-list" id="extractorsList"></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="sidebar">
+            <div class="sidebar desktop-only">
                 <div class="card">
                     <h2 style="font-size:1.05rem;">🌐 Supported Sites</h2>
-                    <div id="extractorsStats" class="stats"></div>
-                    <div class="extractors-list" id="extractorsList"></div>
+                    <div id="extractorsStatsDesktop" class="stats"></div>
+                    <div class="extractors-list" id="extractorsListDesktop"></div>
                 </div>
             </div>
         </div>
@@ -532,6 +595,8 @@
             refreshBtn: document.getElementById('refreshBtn'),
             extractorsStats: document.getElementById('extractorsStats'),
             extractorsList: document.getElementById('extractorsList'),
+            extractorsStatsDesktop: document.getElementById('extractorsStatsDesktop'),
+            extractorsListDesktop: document.getElementById('extractorsListDesktop'),
             toast: document.getElementById('toast'),
         };
 
@@ -622,19 +687,21 @@
             }
         }
 
-        async function loadExtractors() {
+        async function renderExtractors(container, statsEl) {
             try {
                 const response = await fetch(`${API_BASE}/extractors`);
                 const data = await response.json();
-                els.extractorsStats.innerHTML = `
-                    <div class="stat-box"><div class="stat-value">${data.total_extractors || 0}</div><div class="stat-label">Extractors</div></div>
-                    <div class="stat-box"><div class="stat-value">${data.total_domains || 0}</div><div class="stat-label">Sites</div></div>
-                `;
+                if (statsEl) {
+                    statsEl.innerHTML = `
+                        <div class="stat-box"><div class="stat-value">${data.total_extractors || 0}</div><div class="stat-label">Extractors</div></div>
+                        <div class="stat-box"><div class="stat-value">${data.total_domains || 0}</div><div class="stat-label">Sites</div></div>
+                    `;
+                }
 
                 const extractors = data.extractors || {};
                 const keys = Object.keys(extractors);
                 if (!keys.length) {
-                    els.extractorsList.innerHTML = '<div class="empty-state">No extractors loaded</div>';
+                    container.innerHTML = '<div class="empty-state">No extractors loaded</div>';
                     return;
                 }
 
@@ -653,9 +720,27 @@
                         </div>
                     `;
                 }
-                els.extractorsList.innerHTML = listHtml;
+                container.innerHTML = listHtml;
             } catch (error) {
                 console.error('Failed to load extractors:', error);
+            }
+        }
+
+        async function loadExtractors() {
+            await renderExtractors(els.extractorsList, els.extractorsStats);
+            await renderExtractors(els.extractorsListDesktop, els.extractorsStatsDesktop);
+        }
+
+        function switchTab(name) {
+            document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            const panel = document.getElementById('tab-' + name);
+            const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
+            if (panel) panel.classList.add('active');
+            if (btn) btn.classList.add('active');
+            if (name === 'sites') {
+                renderExtractors(els.extractorsList, els.extractorsStats);
+                renderExtractors(els.extractorsListDesktop, els.extractorsStatsDesktop);
             }
         }
 
@@ -727,6 +812,10 @@
         els.pasteBtn.addEventListener('click', pasteFromClipboard);
         els.url.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') detectExtractor();
+        });
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
         });
 
         loadExtractors();
