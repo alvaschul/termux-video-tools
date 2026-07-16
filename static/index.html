@@ -89,23 +89,28 @@
         @media (max-width: 860px) {
             .desktop-only { display: none !important; }
             .mobile-only { display: block; }
-            .tab-panel { display: none; min-width: 0; }
-            .tab-panel.active { display: block; min-width: 0; }
+            .tab-panel { display: none; min-width: 0; width: 100%; }
+            .tab-panel.active { display: block; min-width: 0; width: 100%; }
             .tab-scroll {
-                max-height: 65vh;
+                max-height: 65dvh;
                 overflow-y: auto;
                 overflow-x: hidden;
                 padding-bottom: calc(84px + env(safe-area-inset-bottom));
+                width: 100%;
+                box-sizing: border-box;
+                flex-shrink: 1;
+                min-width: 0;
             }
-            .card { padding: 14px; max-width: 100%; overflow: hidden; }
-            .job-item { padding: 8px; margin-bottom: 6px; border-radius: 10px; max-width: 100%; overflow: hidden; width: 100%; box-sizing: border-box; }
-            .job-header { flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
-            .job-status { align-self: stretch; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .job-url { font-size: 0.8rem; margin: 2px 0; display: block; width: 100%; max-width: 100%; word-break: break-all; overflow-wrap: anywhere; }
-            .job-meta { font-size: 0.78rem; margin-top: 4px; max-width: 100%; overflow: hidden; }
-            .job-actions { margin-top: 6px; }
-            .pill-btn { max-width: 100%; min-height: 32px; font-size: 0.76rem; padding: 5px 9px; }
-            .progress-track { height: 6px; margin-top: 6px; max-width: 100%; }
+            .card { padding: 14px; max-width: 100%; overflow: hidden; width: 100%; box-sizing: border-box; flex-shrink: 1; min-width: 0; }
+            .job-item { padding: 8px; margin-bottom: 6px; border-radius: 10px; max-width: 100%; overflow: hidden; width: 100%; box-sizing: border-box; flex-shrink: 1; min-width: 0; }
+            .job-header { flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; flex-shrink: 1; }
+            .job-status { align-self: stretch; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
+            .job-url { font-size: 0.8rem; margin: 2px 0; display: block; width: 100%; max-width: 100%; word-break: break-all; overflow-wrap: anywhere; flex-shrink: 1; }
+            .job-meta { font-size: 0.78rem; margin-top: 4px; max-width: 100%; overflow: hidden; word-break: break-word; flex-shrink: 1; }
+            .job-actions { margin-top: 6px; flex-shrink: 1; }
+            .pill-btn { max-width: 100%; min-height: 32px; font-size: 0.76rem; padding: 5px 9px; flex-shrink: 1; }
+            .progress-track { height: 6px; margin-top: 6px; max-width: 100%; flex-shrink: 1; }
+            .extractors-list { max-width: 100%; overflow-x: hidden; }
         }
 
         .card {
@@ -118,6 +123,9 @@
             -webkit-backdrop-filter: blur(12px);
             max-width: 100%;
             overflow: hidden;
+            width: 100%;
+            box-sizing: border-box;
+            contain: layout style;
         }
 
         .card h2 {
